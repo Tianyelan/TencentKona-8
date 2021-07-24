@@ -136,6 +136,48 @@ MethodMatcher::MethodMatcher(Symbol* class_name, Mode class_mode,
   , _signature(signature) {
 }
 
+static const char *find_final_lambda_flag(const char *cursor) {
+  static const char *pattern = "$$Lambda$";
+  static int next[] = {-1, 0, -1, -1, -1, -1, -1, -1, 0};
+
+  int k = -1;
+  const char *final_match = NULL;
+  while (*cursor != '\0') {
+    while (k > -1 && pattern[k+1] != *cursor)
+      k = next[k];
+    if (pattern[k+1] == *cursor)
+      ++k;
+    if (k == (int)(strlen(pattern) - 1))
+      final_match = cursor - strlen(pattern) + 1;
+    ++cursor;
+  }
+  return final_match;
+}
+
+static bool match_lambda(const char *candidate_string, const char *match_string) {
+  const char *match_string_end = find_final_lambda_flag(match_string);
+  if (match_string_end == NULL)
+    return false;
+
+  const char *candidate_string_end = find_final_lambda_flag(candidate_string);
+  if (candidate_string_end == NULL)
+    return false;
+
+  if ((candidate_string_end - candidate_string != match_string_end - match_string) ||
+      strncmp(candidate_string, match_string, candidate_string_end - candidate_string) != 0)
+    return false;
+  match_string_end += 9;
+  candidate_string_end += 9; // strlen("$$Lambda$"}) == 9
+  while (*candidate_string_end != '\0' && *match_string_end != '\0' &&
+         *candidate_string_end == *match_string_end) {
+    ++candidate_string_end;
+    ++match_string_end;
+  }
+
+  return *match_string_end == '\0' ||
+    (*match_string_end == '/' && *(match_string_end + 1) == '\0');
+}
+
 bool MethodMatcher::match(Symbol* candidate, Symbol* match, Mode match_mode) {
   if (match_mode == Any) {
     return true;
@@ -151,7 +193,8 @@ bool MethodMatcher::match(Symbol* candidate, Symbol* match, Mode match_mode) {
 
   switch (match_mode) {
   case Prefix:
-    return strstr(candidate_string, match_string) == candidate_string;
+    return strstr(candidate_string, match_string) == candidate_string
+      || match_lambda(candidate_string, match_string);
 
   case Suffix: {
     size_t clen = strlen(candidate_string);

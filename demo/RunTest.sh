@@ -1,0 +1,1 @@
+${JAVA_HOME}/bin/java -XX:+PrintCompilation -XX:CompileCommand=exclude,ExcludeLambdaTester\$\$Lambda\$2\/\*::operation -XX:CompileCommand=exclude,ExcludeLambdaTester\$\$Lambda\$1\/\*::operation ExcludeLambdaTester 100000
